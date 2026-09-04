@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 
 # Contract for data coming inside a POST request
 class UserCreateSchema(BaseModel):
@@ -11,8 +11,9 @@ class UserResponseSchema(BaseModel):
     email: EmailStr
     name: str
 
-    class Config:
-        from_attributes = True  # Allows mapping directly out of SQLAlchemy objects
+    # Define model_config as a typed class dictionary attribute
+    model_config = ConfigDict(from_attributes=True)
+
 
 # Contract for updating an existing user profile (All fields optional)
 class UserUpdateSchema(BaseModel):
