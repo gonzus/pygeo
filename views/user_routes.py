@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError  # <-- 1. Import the database error cl
 from sqlalchemy.orm import selectinload
 from database import db_session 
 from models.user import UserModel
-from schemas.user_schema import UserCreateSchema, UserUpdateSchema, UserResponseSchema
+from schemas.user_schema import UserCreateSchema, UserUpdateSchema, UserResponseSchema, UserSummaryResponseSchema
 
 user_blueprint = Blueprint("users", __name__)
 
@@ -46,10 +46,9 @@ def get_user(user_id: int) -> tuple[Response, int]:
 @user_blueprint.route("/summary", methods=["GET"])
 def listing_endpoint():
     # Explicitly instruct SQLAlchemy to fetch the collection using an IN clause
-    # TODO: user a schema to return the response
     stmt = select(UserModel).options(selectinload(UserModel.orders))
     users = db_session.execute(stmt).scalars().all()
-    serialized = [{"id": u.id, "name": u.name, "total_orders": len(u.orders)} for u in users]
+    serialized = [UserSummaryResponseSchema.model_validate(u).model_dump() for u in users]
     return jsonify(serialized)
 
 @user_blueprint.route("", methods=["GET"])
