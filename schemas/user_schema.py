@@ -14,7 +14,6 @@ class UserResponseSchema(BaseModel):
     # Define model_config as a typed class dictionary attribute
     model_config = ConfigDict(from_attributes=True)
 
-
 # Contract for updating an existing user profile (All fields optional)
 class UserUpdateSchema(BaseModel):
     email: EmailStr | None = None

@@ -46,6 +46,6 @@ def test_create_user_duplicate_email_conflict(client: FlaskClient):
     assert response.get_json()["error"] == "A user with this email already exists."
 
 def test_get_user_not_found(client: FlaskClient):
-    """Asserts that querying non-existent integers yields a safe 404."""
+    """Asserts that querying non-existent ids yields a safe 404."""
     response = client.get("/api/users/9991")
     assert response.status_code == 404

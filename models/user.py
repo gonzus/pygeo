@@ -11,9 +11,8 @@ class UserModel(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     is_active: Mapped[bool] = mapped_column(default=True)
 
-    # 🛡️ String reference "OrderModel" avoids immediate imports
     orders: Mapped[List["OrderModel"]] = relationship(
-        "OrderModel",              # String name of the target class
+        "OrderModel",
         back_populates="user",
         lazy="raise"
     )

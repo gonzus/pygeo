@@ -11,8 +11,9 @@ def create_app(config_name: str = "dev") -> Flask:
     app.config.from_object(config_by_name[config_name])
 
     # Register blueprints safely
+    # TODO: better way?
     from views.user_routes import user_blueprint
-    app.register_blueprint(user_blueprint)
+    app.register_blueprint(user_blueprint, url_prefix="/api/users")
 
     @app.errorhandler(404)
     def not_found(error: Exception):
@@ -36,4 +37,3 @@ if __name__ == "__main__":
         port=int(os.getenv("PORT", 5000)),
         debug=app.config.get("DEBUG", True)
     )
-

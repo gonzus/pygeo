@@ -9,9 +9,8 @@ class OrderModel(Base):
     amount: Mapped[float] = mapped_column(nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
 
-    # 🛡️ String reference "UserModel" avoids immediate imports
     user: Mapped["UserModel"] = relationship(
-        "UserModel",               # String name of the target class
+        "UserModel",
         back_populates="orders", 
         lazy="raise"
     )

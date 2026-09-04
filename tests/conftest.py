@@ -4,7 +4,6 @@ from flask.testing import FlaskClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 
-# Import from our application core modules
 from app import create_app
 from database import Base, db_session
 

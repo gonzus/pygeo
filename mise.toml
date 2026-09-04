@@ -5,4 +5,3 @@ uv = "latest"
 [env]
 # mise will instantly recreate a fresh .venv using uv under the hood
 _.python.venv = { path = ".venv", create = true }
-
