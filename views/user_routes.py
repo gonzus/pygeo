@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError  # <-- 1. Import the database error class
 from database import db_session 
 from models.user import UserModel
-from schemas.user_schema import UserCreateSchema, UserResponseSchema
+from schemas.user_schema import UserCreateSchema, UserUpdateSchema, UserResponseSchema
 
 user_blueprint = Blueprint("users", __name__)
 
@@ -40,17 +40,17 @@ def get_user(user_id: int) -> tuple[Response, int]:
     # Modern SQLAlchemy 2.0 select syntax
     stmt = select(UserModel).where(UserModel.id == user_id)
     user = db_session.execute(stmt).scalar_one_or_none()
-    
+
     if not user:
         return jsonify({"error": "User not found"}), 404
-        
+
     return jsonify(UserResponseSchema.model_validate(user).model_dump()), 200
 
 @user_blueprint.route("/api/users", methods=["GET"])
 def list_users() -> tuple[Response, int]:
     stmt = select(UserModel)
     users = db_session.execute(stmt).scalars().all()
-    
+
     # Map a collection using Pydantic list parsing
     response_data = [UserResponseSchema.model_validate(u).model_dump() for u in users]
     return jsonify(response_data), 200
@@ -59,10 +59,46 @@ def list_users() -> tuple[Response, int]:
 def delete_user(user_id: int) -> tuple[Response, int]:
     stmt = select(UserModel).where(UserModel.id == user_id)
     user = db_session.execute(stmt).scalar_one_or_none()
-    
+
     if not user:
         return jsonify({"error": "User not found"}), 404
-        
+
     db_session.delete(user)
     db_session.commit()
     return jsonify({"message": "User deleted successfully"}), 200
+
+@user_blueprint.route("/api/users/<int:user_id>", methods=["PATCH"])
+def update_user(user_id: int) -> tuple[Response, int]:
+    # 1. Fetch the existing entity
+    stmt = select(UserModel).where(UserModel.id == user_id)
+    user = db_session.execute(stmt).scalar_one_or_none()
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # 2. Validate the incoming partial payload
+    try:
+        json_data = request.get_json() or {}
+        validated_data = UserUpdateSchema(**json_data)
+    except ValidationError as e:
+        return jsonify({"errors": e.errors()}), 422
+
+    # 3. Dynamic payload merge loop: exclude keys that weren't explicitly passed
+    update_dict = validated_data.model_dump(exclude_unset=True)
+
+    if not update_dict:
+        return jsonify({"message": "No modification data provided"}), 200
+
+    for key, value in update_dict.items():
+        setattr(user, key, value)
+
+    # 4. Commit and wrap tracking constraints
+    try:
+        db_session.commit()
+    except IntegrityError:
+        db_session.rollback()
+        return jsonify({"error": "This email address is already in use by another profile."}), 409
+
+    # 5. Build and return the type-safe output representation
+    response_payload = UserResponseSchema.model_validate(user)
+    return jsonify(response_payload.model_dump()), 200

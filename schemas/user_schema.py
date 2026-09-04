@@ -13,3 +13,8 @@ class UserResponseSchema(BaseModel):
 
     class Config:
         from_attributes = True  # Allows mapping directly out of SQLAlchemy objects
+
+# Contract for updating an existing user profile (All fields optional)
+class UserUpdateSchema(BaseModel):
+    email: EmailStr | None = None
+    name: str | None = None
