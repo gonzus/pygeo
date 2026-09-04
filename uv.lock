@@ -279,7 +279,7 @@ wheels = [
 [[package]]
 name = "pygeo"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "email-validator" },
     { name = "flask" },
