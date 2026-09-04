@@ -3,6 +3,7 @@ from flask import Flask, jsonify
 from config import config_by_name
 from database import db_session, engine, Base
 from models import UserModel, OrderModel
+from views import init_user_blueprint
 
 env = os.getenv("FLASK_ENV", "dev")
 
@@ -10,10 +11,7 @@ def create_app(config_name: str = "dev") -> Flask:
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
 
-    # Register blueprints safely
-    # TODO: better way?
-    from views.user_routes import user_blueprint
-    app.register_blueprint(user_blueprint, url_prefix="/api/users")
+    init_user_blueprint(app, "/api/users")
 
     @app.errorhandler(404)
     def not_found(error: Exception):

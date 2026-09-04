@@ -9,6 +9,9 @@ from schemas.user_schema import UserCreateSchema, UserUpdateSchema, UserResponse
 
 user_blueprint = Blueprint("users", __name__)
 
+def init_user_blueprint(app, prefix: str):
+    app.register_blueprint(user_blueprint, url_prefix=prefix)
+
 @user_blueprint.route("", methods=["POST"])
 def create_user() -> tuple[Response, int]:
     try:
