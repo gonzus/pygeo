@@ -1,5 +1,0 @@
-# requirements.txt
-flask
-pydantic
-sqlalchemy
-email-validator
