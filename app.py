@@ -2,7 +2,7 @@ import os
 from flask import Flask, jsonify
 from config import config_by_name
 from database import db_session, engine, Base
-from models.user import UserModel  # Kept here so create_all knows about the tables
+from models import UserModel, OrderModel
 
 env = os.getenv("FLASK_ENV", "dev")
 

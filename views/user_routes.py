@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, Response
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError  # <-- 1. Import the database error class
+from sqlalchemy.orm import selectinload
 from database import db_session 
 from models.user import UserModel
 from schemas.user_schema import UserCreateSchema, UserUpdateSchema, UserResponseSchema
@@ -45,6 +46,16 @@ def get_user(user_id: int) -> tuple[Response, int]:
         return jsonify({"error": "User not found"}), 404
 
     return jsonify(UserResponseSchema.model_validate(user).model_dump()), 200
+
+@user_blueprint.route("/api/users/summary", methods=["GET"])
+def listing_endpoint():
+    # Explicitly instruct SQLAlchemy to fetch the collection using an IN clause
+    stmt = select(UserModel).options(selectinload(UserModel.orders))
+    users = db_session.execute(stmt).scalars().all()
+
+    # ✅ SUCCESS: Executes exactly 2 database queries total, regardless of how many users exist
+    serialized = [{"id": u.id, "name": u.name, "total_orders": len(u.orders)} for u in users]
+    return jsonify(serialized)
 
 @user_blueprint.route("/api/users", methods=["GET"])
 def list_users() -> tuple[Response, int]:
