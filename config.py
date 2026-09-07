@@ -14,6 +14,7 @@ class DevConfig(Config):
 
 class ProdConfig(Config):
     DEBUG: bool = False
+    SQLALCHEMY_DATABASE_URI: str = Config.DATABASE_URL
     # In production, Postgres connections require a secure prefix tweak for SQLAlchemy 2.0
     if Config.DATABASE_URL.startswith("postgres://"):
         SQLALCHEMY_DATABASE_URI = Config.DATABASE_URL.replace("postgres://", "postgresql://", 1)
