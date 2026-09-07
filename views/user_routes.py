@@ -1,9 +1,9 @@
 from flask import Blueprint, request, jsonify, Response
 from pydantic import ValidationError
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError  # <-- 1. Import the database error class
+from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
-from database import db_session 
+from database import db_session
 from models.user import UserModel
 from schemas.user_schema import UserCreateSchema, UserUpdateSchema, UserResponseSchema, UserSummaryResponseSchema
 
@@ -11,6 +11,13 @@ user_blueprint = Blueprint("users", __name__)
 
 def init_user_blueprint(app, prefix: str):
     app.register_blueprint(user_blueprint, url_prefix=prefix)
+
+@user_blueprint.route("", methods=["GET"])
+def list_users() -> tuple[Response, int]:
+    stmt = select(UserModel)
+    users = db_session.execute(stmt).scalars().all()
+    response_data = [UserResponseSchema.model_validate(u).model_dump() for u in users]
+    return jsonify(response_data), 200
 
 @user_blueprint.route("", methods=["POST"])
 def create_user() -> tuple[Response, int]:
@@ -44,19 +51,38 @@ def get_user(user_id: int) -> tuple[Response, int]:
     return jsonify(UserResponseSchema.model_validate(user).model_dump()), 200
 
 @user_blueprint.route("/summary", methods=["GET"])
-def listing_endpoint():
+def summary_endpoint():
     # Explicitly instruct SQLAlchemy to fetch the collection using an IN clause
     stmt = select(UserModel).options(selectinload(UserModel.orders))
     users = db_session.execute(stmt).scalars().all()
     serialized = [UserSummaryResponseSchema.model_validate(u).model_dump() for u in users]
     return jsonify(serialized)
 
-@user_blueprint.route("", methods=["GET"])
-def list_users() -> tuple[Response, int]:
-    stmt = select(UserModel)
-    users = db_session.execute(stmt).scalars().all()
-    response_data = [UserResponseSchema.model_validate(u).model_dump() for u in users]
-    return jsonify(response_data), 200
+@user_blueprint.route("/overview", methods=["GET"])
+def overview_endpoint():
+    # Hand-written complex SQL query
+    query = text("""
+        SELECT
+            u.id,
+            u.name,
+            COUNT(o.id) as total_orders,
+            SUM(o.amount) as total_spent,
+            AVG(o.amount) as avg_order_value
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        WHERE u.is_active = :status
+        GROUP BY u.id, u.name
+        HAVING COUNT(o.id) >= :min_orders
+        ORDER BY total_spent DESC;
+    """)
+
+    # Execute securely using parameter mapping
+    result = db_session.execute(query, {"status": True, "min_orders": 2})
+
+    # Format rows into a list of dictionaries for JSON API response
+    # (result.mappings() safely pairs column names with row values)
+    data = [dict(row) for row in result.mappings()]
+    return jsonify(data)
 
 @user_blueprint.route("/<int:user_id>", methods=["DELETE"])
 def delete_user(user_id: int) -> tuple[Response, int]:
