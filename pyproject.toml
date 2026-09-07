@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Gonzalo Diethelm", email = "gonzalo.diethelm@gmail.com" }
 ]
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
     "email-validator>=2.3.0",
     "flask>=3.1.3",
