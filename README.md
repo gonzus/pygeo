@@ -8,12 +8,18 @@ To run tests:
 pytest -v
 ```
 
-To run the server in development, using a local SQLite database:
+The server uses Postgres for both development and production.
+You can force it to use SQLite by defining an environment variable:
+```
+DATABASE_URL="sqlite:///data.db"
+```
+
+To run the server in development:
 ```
 FLASK_ENV=dev python app.py
 ```
 
-To run the server in production, using a Postgres database:
+To run the server in production:
 ```
 FLASK_ENV=prod python app.py
 ```
