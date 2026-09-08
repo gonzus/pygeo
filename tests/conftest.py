@@ -1,20 +1,35 @@
 import pytest
 from typing import Generator
 from flask.testing import FlaskClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
+import os
+
 
 from app import create_app
 from database import Base, db_session
 
 @pytest.fixture(scope="session")
 def app():
-    """Configures a temporary test application factory instance."""
+    """Configures a temporary test application factory instance running on Postgres."""
 
-    # Spin up an isolated, completely blank in-memory database instance
-    test_engine = create_engine("sqlite:///:memory:")
+    # 1. Pull a dedicated test DB URL from your environment (Never use your production DB!)
+    # Defaulting to a local postgres instance named 'my_app_test'
+    test_db_url = os.getenv("TEST_DATABASE_URL", "postgresql://gonzo@localhost:5432/gonzo")
+    test_engine = create_engine(test_db_url, echo=True).execution_options(
+        schema_translate_map={None: "pygeo_test"}
+    )
 
-    # Force our globally shared scoped session to connect to this test database
-    db_session.configure(bind=test_engine)
+
+    # 2. Safely create the test schema if it doesn't exist yet
+    with test_engine.connect() as conn:
+        conn.execute(text("CREATE SCHEMA IF NOT EXISTS pygeo_test;"))
+        conn.commit()
+
+    # 3. Configure the scoped session to bind to the engine AND use the test schema
+    # The schema_translate_map tells SQLAlchemy to redirect None (default public schema) to 'pygeo_test'
+    db_session.configure(
+        bind=test_engine,
+    )
 
     # Initialize the flask context using our 'dev' configurations
     app = create_app("dev")
@@ -22,13 +37,14 @@ def app():
         "TESTING": True,
     })
 
-    # Build all tables up front for the test lifecycle
+    # 5. Build all tables inside the 'pygeo_test' schema
     Base.metadata.create_all(bind=test_engine)
 
     yield app
 
-    # Purge the schema entirely at the end of the runtime
+    # 6. Purge the schema entirely at the end of the runtime to keep dev clean
     Base.metadata.drop_all(bind=test_engine)
+
 
 @pytest.fixture(scope="function")
 def clean_db(app):
