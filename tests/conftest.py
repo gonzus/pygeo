@@ -2,7 +2,6 @@ import pytest
 from typing import Generator
 from flask.testing import FlaskClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
 
 from app import create_app
 from database import Base, db_session
@@ -10,6 +9,7 @@ from database import Base, db_session
 @pytest.fixture(scope="session")
 def app():
     """Configures a temporary test application factory instance."""
+
     # Spin up an isolated, completely blank in-memory database instance
     test_engine = create_engine("sqlite:///:memory:")
 
@@ -31,15 +31,26 @@ def app():
     Base.metadata.drop_all(bind=test_engine)
 
 @pytest.fixture(scope="function")
-def client(app) -> Generator[FlaskClient, None, None]:
+def clean_db(app):
+    """Ensures a completely fresh database state before every test."""
+
+    # Clear out any leftover session state from a previous test
+    db_session.remove()
+
+    engine = db_session.get_bind()
+
+    # Drop and recreate all tables in-memory
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+
+    yield
+
+    # Clean up after the current test completes
+    db_session.remove()
+
+@pytest.fixture(scope="function")
+def client(app, clean_db) -> Generator[FlaskClient, None, None]:
     """Provides a pristine HTTP client context per individual test."""
+
     with app.test_client() as test_client:
         yield test_client
-
-    # Crucial: Roll back any modifications made by a single test function 
-    # to prevent data leaking into subsequent tests
-    db_session.rollback()
-    # Explicitly clear out rows to ensure a clean state
-    for table in reversed(Base.metadata.sorted_tables):
-        db_session.execute(table.delete())
-    db_session.commit()
