@@ -1,5 +1,6 @@
 from flask.testing import FlaskClient
 from database import db_session
+from sqlalchemy import text
 from models.user import UserModel
 
 def test_create_user_success(client: FlaskClient):
@@ -49,3 +50,10 @@ def test_get_user_not_found(client: FlaskClient):
     """Asserts that querying non-existent ids yields a safe 404."""
     response = client.get("/api/users/9991")
     assert response.status_code == 404
+
+def test_verify_seeded_data(client):
+    count = db_session.execute(text("SELECT COUNT(*) FROM users")).scalar()
+    assert count > 0
+
+    count = db_session.execute(text("SELECT COUNT(*) FROM orders")).scalar()
+    assert count > 0

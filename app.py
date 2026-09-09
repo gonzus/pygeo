@@ -1,38 +1,38 @@
 import os
-from flask import Flask, jsonify
+from flask import Flask
 from flask_migrate import Migrate
 from config import config_by_name
-from database import db_session, engine, Base
-from models import UserModel, OrderModel
+from database import init_db, Base
 from views import init_user_blueprint
 
-env = os.getenv("FLASK_ENV", "dev")
+flask_env = os.getenv("FLASK_ENV", "dev")
 migrate = Migrate()
 
-def create_app(config_name: str = "dev") -> Flask:
+def create_app(config_name=None):
     app = Flask(__name__)
+
+    if not config_name:
+        config_name = flask_env
+
     app.config.from_object(config_by_name[config_name])
 
-    # 3. Initialize Migrate with your app and your declarative base
-    # Since you use a custom engine setup instead of Flask-SQLAlchemy,
-    # we pass Base.metadata directly.
-    migrate.init_app(app, db=None, metadata=Base.metadata)
+    # 2. Initialize your database engine
+    engine = init_db(app)
+
+    # TODO: evaluate whether we should get rid of this.
+    # Since you aren't using Flask-SQLAlchemy, we pass a dummy 'db' object wrapper
+    # or pass a custom object that exposes the metadata so Alembic can find your models.
+    class SQLAlchemyWrapper:
+        metadata = Base.metadata
+
+    migrate.init_app(app, db=SQLAlchemyWrapper(), directory="migrations")
 
     init_user_blueprint(app, "/api/users")
 
-    @app.errorhandler(404)
-    def not_found(error: Exception):
-        return jsonify({"error": "Resource not found"}), 404
-
-    @app.teardown_appcontext
-    def shutdown_session(exception: Exception | None = None) -> None:
-        db_session.remove()
-
     return app
 
-app = create_app(env)
-
 if __name__ == "__main__":
+    app = create_app(flask_env)
     app.run(
         host=os.getenv("HOST", "127.0.0.1"),
         port=int(os.getenv("PORT", 5000)),

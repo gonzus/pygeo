@@ -1,72 +1,69 @@
 import pytest
-from typing import Generator
-from flask.testing import FlaskClient
-from sqlalchemy import create_engine, text
-import os
-
-
+from flask_migrate import upgrade as flask_migrate_upgrade
+from sqlalchemy import MetaData, event
 from app import create_app
-from database import Base, db_session
+import database
+
 
 @pytest.fixture(scope="session")
 def app():
-    """Configures a temporary test application factory instance running on Postgres."""
+    """Initializes the Flask application instance configured for testing."""
 
-    # 1. Pull a dedicated test DB URL from your environment (Never use your production DB!)
-    # Defaulting to a local postgres instance named 'my_app_test'
-    test_db_url = os.getenv("TEST_DATABASE_URL", "postgresql://gonzo@localhost:5432/gonzo")
-    test_engine = create_engine(test_db_url, echo=True).execution_options(
-        schema_translate_map={None: "pygeo_test"}
-    )
+    # This forces the factory to build using the test config
+    app = create_app("test")
 
+    # Safety Guard Check (Reads the newly initialized engine URL)
+    db_uri = str(database.engine.url)
+    if not db_uri.endswith("/pygeo_test"):
+        pytest.exit(
+            f"\n❌ [CRITICAL SAFETY FAILURE]: Target database is dangerous! "
+            f"Expected URI ending in '/pygeo_test', but got '{db_uri}'. "
+            f"Aborting execution to protect production/development data."
+        )
 
-    # 2. Safely create the test schema if it doesn't exist yet
-    with test_engine.connect() as conn:
-        conn.execute(text("CREATE SCHEMA IF NOT EXISTS pygeo_test;"))
-        conn.commit()
-
-    # 3. Configure the scoped session to bind to the engine AND use the test schema
-    # The schema_translate_map tells SQLAlchemy to redirect None (default public schema) to 'pygeo_test'
-    db_session.configure(
-        bind=test_engine,
-    )
-
-    # Initialize the flask context using our 'dev' configurations
-    app = create_app("dev")
-    app.config.update({
-        "TESTING": True,
-    })
-
-    # 5. Build all tables inside the 'pygeo_test' schema
-    Base.metadata.create_all(bind=test_engine)
-
-    yield app
-
-    # 6. Purge the schema entirely at the end of the runtime to keep dev clean
-    Base.metadata.drop_all(bind=test_engine)
+    return app
 
 
-@pytest.fixture(scope="function")
-def clean_db(app):
-    """Ensures a completely fresh database state before every test."""
+@pytest.fixture(scope="session", autouse=True)
+def setup_database(app):
+    """Runs ONCE for the entire test session."""
 
-    # Clear out any leftover session state from a previous test
-    db_session.remove()
-
-    engine = db_session.get_bind()
-
-    # Drop and recreate all tables in-memory
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    with app.app_context():
+        flask_migrate_upgrade()
 
     yield
 
-    # Clean up after the current test completes
-    db_session.remove()
+    # Global Teardown: Use the metadata of the dynamically configured engine
+    metadata = MetaData()
+    metadata.reflect(bind=database.engine)
+    metadata.drop_all(bind=database.engine)
+
 
 @pytest.fixture(scope="function")
-def client(app, clean_db) -> Generator[FlaskClient, None, None]:
-    """Provides a pristine HTTP client context per individual test."""
+def session(app):
+    """Wraps the test inside a Postgres SAVEPOINT transaction and rolls it back."""
 
-    with app.test_client() as test_client:
-        yield test_client
+    with app.app_context():
+        connection = database.engine.connect()
+        transaction = connection.begin()
+
+        database.db_session.configure(bind=connection)
+        nested = connection.begin_nested()
+
+        @event.listens_for(database.db_session, "after_transaction_end")
+        def restart_savepoint(session, trans):
+            nonlocal nested
+            if trans.nested and not nested.is_active:
+                nested = connection.begin_nested()
+
+        yield database.db_session
+
+        database.db_session.remove()
+        transaction.rollback()
+        connection.close()
+
+
+@pytest.fixture(scope="function")
+def client(app, session):
+    """A test client fixture that forces the application endpoints to share transactions."""
+    return app.test_client()
