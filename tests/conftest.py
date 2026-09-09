@@ -66,4 +66,5 @@ def session(app):
 @pytest.fixture(scope="function")
 def client(app, session):
     """A test client fixture that forces the application endpoints to share transactions."""
+
     return app.test_client()

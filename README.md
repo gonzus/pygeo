@@ -3,6 +3,11 @@ To install all dependencies:
 mise install
 ```
 
+To run all (pending) DB migrations:
+```
+flask db upgrade head
+```
+
 To run tests:
 ```
 pytest -v
@@ -14,8 +19,9 @@ You can force it to use SQLite by defining an environment variable:
 DATABASE_URL="sqlite:///data.db"
 ```
 
-To run the server in development:
+To run the server in development, run one of:
 ```
+python app.py
 FLASK_ENV=dev python app.py
 ```
 
