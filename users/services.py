@@ -104,3 +104,13 @@ class UserDomainService:
             .filter(UserModel.is_active == True)
             .all()
         )
+
+
+    @staticmethod
+    def is_user_eligible_for_orders(user_id: int) -> bool:
+        """
+        Public API boundary checkpoint.
+        Allows other domains to verify eligibility without querying internal models.
+        """
+        user = db_session.query(UserModel).filter_by(id=user_id).first()
+        return user is not None and user.is_active
