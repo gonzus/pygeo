@@ -1,7 +1,7 @@
 from typing import List
-from sqlalchemy import String, Identity
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from database import Base
+from sqlalchemy import Identity, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from core.database import Base
 
 class UserModel(Base):
     __tablename__ = "users"

@@ -5,24 +5,32 @@ from logging.config import fileConfig
 from flask import current_app
 from alembic import context
 
-# Ensure your application directory is in the Python path,
-# and import local dabatase and models.
+# Ensure your application directory is in the Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from database import engine, Base
-from models import UserModel, OrderModel
+
+from core.database import engine, Base
+from users.models import UserModel
+from orders.models import OrderModel
 
 def get_engine():
     return engine
 
 def get_engine_url():
-    return str(engine.url).replace('%', '%%')
+    current_engine = get_engine()
+    if current_engine:
+        return str(current_engine.url).replace('%', '%%')
+    return ""
 
 def get_metadata():
     return Base.metadata
 
 config = context.config
 fileConfig(config.config_file_name)
-config.set_main_option('sqlalchemy.url', get_engine_url())
+
+# Dynamically set SQLAlchemy target URL from active configuration
+engine_url = get_engine_url()
+if engine_url:
+    config.set_main_option('sqlalchemy.url', engine_url)
 
 logger = logging.getLogger('alembic.env')
 target_metadata = get_metadata()
